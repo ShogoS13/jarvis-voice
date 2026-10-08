@@ -3,27 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ジャービス</title>
+<title>ジャービス 司令室</title>
 <style>
-  :root { --bg:#050c14; --panel:#0a1a29; --line:#12425e; --fg:#d7f1fb; --dim:#6f93a8; --cyan:#2fd8ff; --amber:#ffb340; color-scheme: dark; }
-  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:15px/1.6 system-ui, "Noto Sans JP", sans-serif; }
-  main { max-width:760px; margin:0 auto; display:grid; gap:12px; }
+  :root { --bg:#050c14; --panel:#0a1a29; --line:#12425e; --fg:#d7f1fb; --dim:#6f93a8; --cyan:#2fd8ff; --amber:#ffb340; --red:#ff5a5f; --green:#4ae3a1; color-scheme: dark; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:16px; background:radial-gradient(1200px 600px at 50% -10%, #0c2a3f 0%, var(--bg) 60%) fixed, var(--bg); color:var(--fg); font:15px/1.6 system-ui, "Noto Sans JP", sans-serif; }
+  main { max-width:980px; margin:0 auto; display:grid; gap:14px; }
   h1 { margin:0; letter-spacing:.2em; color:var(--cyan); font-size:18px; }
-  .panel { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:12px; }
+  h2 { margin:0 0 10px; font-size:12px; letter-spacing:.22em; color:var(--cyan); font-weight:600; }
+  .panel { background:linear-gradient(180deg, rgba(47,216,255,.05), rgba(47,216,255,0) 40%), var(--panel); border:1px solid var(--line); border-radius:4px; padding:12px; min-width:0; }
   #state { font-weight:700; } #state.on { color:var(--cyan); } #state.wait { color:var(--amber); }
-  button, input { font:inherit; } input { width:100%; box-sizing:border-box; background:#06121d; color:var(--fg); border:1px solid var(--line); padding:8px; border-radius:3px; }
+  button, input { font:inherit; } input { width:100%; background:#06121d; color:var(--fg); border:1px solid var(--line); padding:8px; border-radius:3px; }
   button { background:transparent; color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:3px; cursor:pointer; }
+  button:hover, button:focus-visible { background:rgba(47,216,255,.12); outline:none; }
+  button[disabled] { opacity:.5; cursor:default; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .dim { color:var(--dim); font-size:12px; }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  .stamp { font-size:12px; color:var(--dim); } .stamp b { color:var(--cyan); font-weight:600; }
   #log { display:grid; gap:8px; list-style:none; margin:0; padding:0; } #log li { border-left:2px solid var(--line); padding-left:10px; white-space:pre-wrap; overflow-wrap:anywhere; }
   #log li.me { border-color:var(--cyan); } #log li.bad { border-color:var(--amber); }
   details summary { cursor:pointer; color:var(--dim); }
+
+  .banner { display:none; border:1px solid var(--amber); color:var(--amber); padding:8px 12px; border-radius:3px; font-size:13px; overflow-wrap:anywhere; }
+  .banner.on { display:block; }
+  .core { display:grid; grid-template-columns:minmax(0,240px) minmax(0,1fr); gap:12px; align-items:stretch; }
+  @media (max-width:640px) { .core { grid-template-columns:minmax(0,1fr); } }
+  .arc { display:grid; place-items:center; gap:6px; }
+  .arc svg { width:100%; max-width:200px; height:auto; }
+  .ring-spin { transform-origin:110px 110px; animation:spin 24s linear infinite; }
+  .ring-spin2 { transform-origin:110px 110px; animation:spin 40s linear infinite reverse; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .ring-spin, .ring-spin2 { animation:none; } }
+  .arc .num { font-weight:700; font-size:34px; fill:var(--fg); } .arc .sub { font-size:10px; letter-spacing:.2em; fill:var(--dim); }
+  .arc small { color:var(--dim); font-size:12px; text-align:center; overflow-wrap:anywhere; }
+  .label { font-size:11px; letter-spacing:.2em; color:var(--dim); }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; align-content:start; }
+  .tile { border:1px solid var(--line); border-radius:3px; padding:10px 12px; background:rgba(5,12,20,.5); min-width:0; text-align:left; width:100%; color:var(--fg); }
+  .tile:hover, .tile:focus-visible, .tile[aria-pressed="true"] { border-color:var(--cyan); box-shadow:0 0 0 1px var(--cyan) inset; }
+  .tile .n { font-weight:700; font-size:30px; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .tile .u { font-size:13px; color:var(--dim); margin-left:4px; font-weight:400; } .tile .d { font-size:12px; color:var(--dim); margin-top:4px; }
+  .warn .n { color:var(--amber); } .bad .n { color:var(--red); } .ok .n { color:var(--green); } .info .n { color:var(--cyan); }
+  .list { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+  .list li { display:grid; grid-template-columns:auto minmax(0,1fr); gap:10px; align-items:baseline; overflow-wrap:anywhere; }
+  .pill { font-size:11px; letter-spacing:.08em; padding:1px 8px; border:1px solid currentColor; border-radius:2px; white-space:nowrap; }
+  .p-warn { color:var(--amber); } .p-info { color:var(--cyan); } .p-ok { color:var(--green); } .p-bad { color:var(--red); }
+  .scroll { overflow-x:auto; }
+  .channels { width:100%; border-collapse:collapse; font-size:13px; }
+  .channels th, .channels td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  .channels th { font-size:11px; letter-spacing:.14em; color:var(--dim); font-weight:600; }
+  .num-r { text-align:right !important; font-variant-numeric:tabular-nums; }
+  .waiting { color:var(--dim); text-align:center; padding:8px 0; font-size:12px; }
+  .items { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+  .item { border:1px solid var(--line); border-radius:3px; padding:10px 12px; display:grid; gap:6px; min-width:0; }
+  .item .t { font-weight:700; overflow-wrap:anywhere; } .item .m { color:var(--dim); font-size:12px; overflow-wrap:anywhere; }
+  .item .fix { color:var(--amber); font-size:13px; overflow-wrap:anywhere; } .item .acts { display:flex; gap:8px; flex-wrap:wrap; }
+  .small { padding:3px 10px; font-size:12px; } .none { color:var(--dim); }
+  .reqtext { white-space:pre-wrap; border-left:2px solid var(--cyan); padding:4px 10px; margin:0; overflow-wrap:anywhere; }
+  .reqtext:empty { display:none; }
 </style>
 </head>
 <body>
 <main>
-  <h1>J.A.R.V.I.S.</h1>
+  <div class="head"><h1>J.A.R.V.I.S. 司令室</h1><div class="stamp">最終更新 <b id="asof">受信待ち</b> <button id="refresh" type="button" class="small">更新</button></div></div>
   <div class="panel row"><span id="state" class="wait">停止中</span><button id="toggle" type="button">待機を始める</button><label class="dim"><input id="speak" type="checkbox" checked style="width:auto"> 答えを読み上げる</label></div>
   <div class="panel"><div class="dim">「ジャービス、○○」と話すか、下の欄に入力して Enter。</div><input id="text" type="text" placeholder="例: 今日の状況は？" autocomplete="off"></div>
+
+  <div class="banner" id="stale" role="status"></div>
+  <div class="banner" id="hudmsg" role="status"></div>
+  <section class="core">
+    <div class="panel arc" aria-label="今月のAI運用費">
+      <div class="label">AI運用費（今月）</div>
+      <svg viewBox="0 0 220 220" role="img" aria-label="AI運用費の使用率">
+        <g class="ring-spin2"><circle cx="110" cy="110" r="102" fill="none" stroke="#12425e" stroke-width="1" stroke-dasharray="2 8"/></g>
+        <g class="ring-spin"><circle cx="110" cy="110" r="92" fill="none" stroke="#2fd8ff" stroke-opacity=".35" stroke-width="1" stroke-dasharray="30 14 4 14"/></g>
+        <circle cx="110" cy="110" r="74" fill="none" stroke="#12425e" stroke-width="10"/>
+        <circle id="gauge" cx="110" cy="110" r="74" fill="none" stroke="#2fd8ff" stroke-width="10" transform="rotate(-90 110 110)" stroke-dasharray="0 465"/>
+        <text x="110" y="112" text-anchor="middle" class="num" id="gauge-pct">—</text>
+        <text x="110" y="134" text-anchor="middle" class="sub">USED</text>
+      </svg>
+      <small id="spent">—</small>
+    </div>
+    <div class="tiles" id="tiles"><div class="waiting">データを受信しています…</div></div>
+  </section>
+  <section class="panel" id="detail-panel" hidden>
+    <h2 id="detail-title">詳細</h2>
+    <ul class="items" id="detail"></ul>
+    <p class="reqtext" id="reqtext"></p>
+  </section>
+  <section class="panel"><h2>注意の信号</h2><ul class="list" id="alerts"><li><span class="pill p-info">待機</span><span>最初のデータを待っています。</span></li></ul></section>
+  <section class="panel"><h2>チャンネル</h2><div class="scroll"><table class="channels">
+    <thead><tr><th>チャンネル</th><th class="num-r">登録者</th><th class="num-r">動画</th></tr></thead>
+    <tbody id="channels"><tr><td colspan="3" class="waiting">受信待ち</td></tr></tbody></table></div></section>
+
   <ul id="log" class="panel"></ul>
   <details class="panel"><summary>設定（このブラウザにだけ保存されます）</summary>
     <p class="dim">GitHub のトークン（Actions: 書き込み、Contents: 読み取り、この保管庫だけ）。</p>

@@ -1,4 +1,5 @@
 import { findWake, classify, isYes, isNo, confirmPhrase } from './parse.mjs';
+import { staleness, detailItems, tileModels, gaugeModel } from './hud-view.mjs';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -35,7 +36,7 @@ async function send(text) {
     const a = await api(`/repos/${repo}/contents/answers/${id}.json?ref=jarvis-answers`, { headers: { Accept: 'application/vnd.github.raw+json' } });
     if (a.ok) {
       const j = JSON.parse(await a.text());
-      log(`ジャービス: ${j.text}`, j.ok ? '' : 'bad'); say(j.text); setState(listening ? '待機中（「ジャービス」と呼んでください）' : '停止中', listening ? 'on' : 'wait'); return;
+      log(`ジャービス: ${j.text}`, j.ok ? '' : 'bad'); say(j.text); setState(listening ? '待機中（「ジャービス」と呼んでください）' : '停止中', listening ? 'on' : 'wait'); refreshHud(); return;
     }
   }
   log('応答がありません。Actions の実行を確認してください。', 'bad'); setState(listening ? '待機中' : '停止中', listening ? 'on' : 'wait');
@@ -71,3 +72,111 @@ $('toggle').onclick = () => (listening ? stop() : start());
 $('text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { const t = e.target.value.trim(); e.target.value = ''; if (t) handle(`ジャービス ${t}`); } });
 $('save').onclick = () => { store.set('repo', $('repo').value.trim()); store.set('token', $('token').value.trim()); $('token').value = ''; log('設定を保存しました。'); };
 $('repo').value = store.get('repo', 'ShogoS13/ai-company-vault');
+
+// ---- 司令室（ダッシュボード）----
+const yen = (n) => `${Number(n).toLocaleString('ja-JP')}円`;
+let hudStatus = null, hudCurrent = null, hudBusy = false;
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function hudMsg(text) { const m = $('hudmsg'); m.textContent = text || ''; m.classList.toggle('on', !!text); }
+
+function copyBtn(label, text) {
+  const b = el('button', 'small', label); b.type = 'button';
+  b.onclick = async () => {
+    $('reqtext').textContent = `依頼文: ${text}`;
+    try { await navigator.clipboard.writeText(text); b.textContent = 'コピーしました'; setTimeout(() => { b.textContent = label; }, 1800); } catch { /* 画面の依頼文を手で写せる */ }
+  };
+  return b;
+}
+function runBtn(text) {
+  const b = el('button', 'small', 'そのまま実行'); b.type = 'button';
+  b.onclick = () => { const t = $('text'); t.value = text; t.focus(); log(`入力欄に依頼文を入れました。Enter で送信します: ${text}`); };
+  return b;
+}
+
+function renderTiles() {
+  const t = $('tiles'); t.textContent = '';
+  for (const m of tileModels(hudStatus)) {
+    const b = el('button', `tile ${m.cls}`); b.type = 'button'; b.setAttribute('aria-pressed', hudCurrent === m.key ? 'true' : 'false');
+    const n = el('div', 'n', String(m.n)); n.appendChild(el('span', 'u', m.unit));
+    b.append(el('div', 'label', m.label), n, el('div', 'd', m.d));
+    b.onclick = () => { hudCurrent = hudCurrent === m.key ? null : m.key; renderTiles(); renderDetail(); };
+    t.appendChild(b);
+  }
+}
+const DETAIL_TITLES = { approvals: '承認待ち', needs: '要対応', tasks: 'タスク（todo）', videos: '動画の失敗', errors: 'エラー（24時間）', x: 'X 投稿' };
+function renderDetail() {
+  const p = $('detail-panel'), ul = $('detail'); ul.textContent = ''; $('reqtext').textContent = '';
+  if (!hudCurrent || !hudStatus) { p.hidden = true; return; }
+  $('detail-title').textContent = DETAIL_TITLES[hudCurrent] || '詳細';
+  const items = detailItems(hudStatus, hudCurrent);
+  for (const it of items) {
+    const li = el('li', 'item'); li.appendChild(el('div', 't', it.title));
+    if (it.meta) li.appendChild(el('div', 'm', it.meta));
+    if (it.fix) li.appendChild(el('div', 'fix', `解消の道筋: ${it.fix}`));
+    const box = el('div', 'acts');
+    for (const c of it.copies) { box.appendChild(copyBtn(c.label, c.text)); box.appendChild(runBtn(c.text)); }
+    li.appendChild(box); ul.appendChild(li);
+  }
+  if (!items.length) ul.appendChild(el('li', 'none', '該当する項目はありません。（詳細は次の自動更新で表示されます）'));
+  p.hidden = false;
+}
+function renderHud(d) {
+  hudStatus = d;
+  const g = gaugeModel(d.budget), b = d.budget || {};
+  $('asof').textContent = d.asof ? `${String(d.asof).replace('T', ' ').slice(0, 16)} JST` : '—';
+  const gg = $('gauge'); gg.setAttribute('stroke-dasharray', g.dash); gg.setAttribute('stroke', g.color);
+  $('gauge-pct').textContent = `${g.pct}%`;
+  $('spent').textContent = `${yen(b.spent_jpy || 0)} / 上限 ${yen(b.limit_jpy || 0)}`;
+  renderTiles(); renderDetail();
+  const ul = $('alerts'); ul.textContent = '';
+  for (const x of d.alerts || []) {
+    const li = el('li'), lv = x.level === 'bad' ? ['p-bad', '警告'] : x.level === 'warn' ? ['p-warn', '注意'] : ['p-info', '情報'];
+    li.append(el('span', `pill ${lv[0]}`, lv[1]), el('span', null, x.text)); ul.appendChild(li);
+  }
+  if (!ul.children.length) { const li = el('li'); li.append(el('span', 'pill p-ok', '正常'), el('span', null, '注意の信号はありません。')); ul.appendChild(li); }
+  const tb = $('channels'); tb.textContent = '';
+  for (const c of d.channels || []) {
+    const tr = el('tr'); tr.append(el('td', null, c.name || c.id), el('td', 'num-r', c.subscribers == null ? '—' : String(c.subscribers)), el('td', 'num-r', c.videos == null ? '—' : String(c.videos))); tb.appendChild(tr);
+  }
+  if (!tb.children.length) { const tr = el('tr'), td = el('td', 'waiting', 'チャンネルのデータなし'); td.colSpan = 3; tr.appendChild(td); tb.appendChild(tr); }
+  updateStale();
+}
+function updateStale() {
+  const s = $('stale');
+  if (!hudStatus) { s.classList.remove('on'); return; }
+  const st = staleness(hudStatus.asof_epoch, Date.now());
+  s.textContent = st.stale ? `データが古くなっています（${st.ageMinutes == null ? '時刻不明' : `約 ${Math.round(st.ageMinutes / 60)} 時間前`}）。「更新」を押してください。` : '';
+  s.classList.toggle('on', st.stale);
+}
+
+async function refreshHud() {
+  const { repo, token } = gh();
+  if (!token) { hudMsg('司令室を表示するには、下の設定で GitHub のトークンを保存してください。'); return; }
+  if (hudBusy) return;
+  hudBusy = true;
+  try {
+    const r = await api(`/repos/${repo}/contents/status.json?ref=jarvis-answers`, { headers: { Accept: 'application/vnd.github.raw+json' } });
+    if (r.status === 404) { hudMsg('司令室のデータがまだありません。「更新」を押すと作られます。'); return; }
+    if (!r.ok) { hudMsg(`司令室のデータを取得できませんでした（HTTP ${r.status}）。${r.status === 401 || r.status === 403 ? 'トークンの権限や期限を確認してください。' : ''}`); return; }
+    const d = JSON.parse(await r.text());
+    hudMsg(''); renderHud(d);
+  } catch { hudMsg('司令室のデータを取得できませんでした。通信を確認してください。'); }
+  finally { hudBusy = false; }
+}
+async function requestHudUpdate() {
+  const { repo, token } = gh();
+  if (!token) { hudMsg('司令室を更新するには、下の設定で GitHub のトークンを保存してください。'); return; }
+  const btn = $('refresh'); btn.disabled = true;
+  try {
+    const r = await api(`/repos/${repo}/actions/workflows/hud.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main' }) });
+    if (!r.ok) { hudMsg(`更新の依頼に失敗しました（HTTP ${r.status}）。`); return; }
+    hudMsg('更新を依頼しました。40 秒ほどで反映されます。');
+    await new Promise((res) => setTimeout(res, 40e3));
+    hudMsg(''); await refreshHud();
+  } catch { hudMsg('更新の依頼を送れませんでした。通信を確認してください。'); }
+  finally { btn.disabled = false; }
+}
+$('refresh').onclick = requestHudUpdate;
+setInterval(() => { if (!document.hidden) { refreshHud(); updateStale(); } }, 60e3);
+window.addEventListener('focus', refreshHud);
+refreshHud();
