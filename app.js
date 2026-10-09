@@ -1,4 +1,4 @@
-import { findWake, classify } from './parse.mjs';
+import { findWake } from './parse.mjs';
 import { staleness, detailItems, tileModels, gaugeModel } from './hud-view.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -27,7 +27,7 @@ async function send(text) {
 async function sendInner(text) {
   const { repo, token } = gh();
   if (!token) { log('GitHub のトークンが未設定です。設定欄に入力して保存してください。', 'bad'); return; }
-  const mode = classify(text), id = newId();
+  const mode = 'action', id = newId(); // 読み取り専用では修復ができないため、常に実行モードで送る
   log(`あなた: ${text}（${mode === 'action' ? '実行' : '確認'}）`, 'me');
   const r = await api(`/repos/${repo}/actions/workflows/jarvis.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { id, text, mode } }) });
   if (!r.ok) { log(`送信に失敗しました（HTTP ${r.status}）。${r.status === 401 || r.status === 403 ? 'トークンの権限や期限を確認してください。' : r.status === 404 ? 'リポジトリ名かワークフローを確認してください。' : ''}`, 'bad'); return; }
