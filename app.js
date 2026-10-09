@@ -1,4 +1,4 @@
-import { findWake, classify, isYes, isNo, confirmPhrase } from './parse.mjs';
+import { findWake, classify } from './parse.mjs';
 import { staleness, detailItems, tileModels, gaugeModel } from './hud-view.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -6,14 +6,10 @@ const store = {
   get: (k, d = '') => { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* 保存できなくても動く */ } },
 };
-let rec = null, listening = false, pending = null, awaitingUntil = 0;
+let rec = null, listening = false, awaitingUntil = 0, sending = false;
 
 function log(text, cls = '') { const li = document.createElement('li'); li.className = cls; li.textContent = text; $('log').prepend(li); }
 function setState(text, cls) { const s = $('state'); s.textContent = text; s.className = cls; }
-function say(text) {
-  if (!$('speak').checked || !('speechSynthesis' in window)) return;
-  const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; speechSynthesis.cancel(); speechSynthesis.speak(u);
-}
 const gh = () => ({ repo: store.get('repo', 'ShogoS13/ai-company-vault'), token: store.get('token') });
 const newId = () => `${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -23,6 +19,12 @@ async function api(path, init = {}) {
 }
 
 async function send(text) {
+  if (sending) { log('前の命令を実行中です。終わってからもう一度送ってください。', 'bad'); return; }
+  sending = true;
+  try { await sendInner(text); } finally { sending = false; }
+}
+
+async function sendInner(text) {
   const { repo, token } = gh();
   if (!token) { log('GitHub のトークンが未設定です。設定欄に入力して保存してください。', 'bad'); return; }
   const mode = classify(text), id = newId();
@@ -36,24 +38,18 @@ async function send(text) {
     const a = await api(`/repos/${repo}/contents/answers/${id}.json?ref=jarvis-answers`, { headers: { Accept: 'application/vnd.github.raw+json' } });
     if (a.ok) {
       const j = JSON.parse(await a.text());
-      log(`ジャービス: ${j.text}`, j.ok ? '' : 'bad'); say(j.text); setState(listening ? '待機中（「ジャービス」と呼んでください）' : '停止中', listening ? 'on' : 'wait'); refreshHud(); return;
+      log(`ジャービス: ${j.text}`, j.ok ? '' : 'bad'); setState(listening ? '待機中（「ジャービス」と呼んでください）' : '停止中', listening ? 'on' : 'wait'); refreshHud(); return;
     }
   }
   log('応答がありません。Actions の実行を確認してください。', 'bad'); setState(listening ? '待機中' : '停止中', listening ? 'on' : 'wait');
 }
 
 async function handle(transcript) {
-  if (pending) {
-    const cmd = pending; pending = null;
-    if (isYes(transcript)) { say('実行します。'); await send(cmd); } else { log('キャンセルしました。'); say('キャンセルしました。'); }
-    return;
-  }
   const w = findWake(transcript);
   const command = w ? w.command : (Date.now() < awaitingUntil ? transcript.trim() : '');
-  if (w && !command) { awaitingUntil = Date.now() + 8000; say('はい。'); log('（呼びかけを聞きました。ご用件をどうぞ）'); return; }
+  if (w && !command) { awaitingUntil = Date.now() + 8000; log('（呼びかけを聞きました。ご用件をどうぞ）'); return; }
   if (!command) return;
   awaitingUntil = 0;
-  if (classify(command) === 'action') { pending = command; const p = confirmPhrase(command); log(p); say(p); return; }
   await send(command);
 }
 
@@ -89,7 +85,7 @@ function copyBtn(label, text) {
 }
 function runBtn(text) {
   const b = el('button', 'small', 'そのまま実行'); b.type = 'button';
-  b.onclick = () => { const t = $('text'); t.value = text; t.focus(); log(`入力欄に依頼文を入れました。Enter で送信します: ${text}`); };
+  b.onclick = () => { send(text); };
   return b;
 }
 
