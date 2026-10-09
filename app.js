@@ -64,6 +64,20 @@ function start() {
 }
 function stop() { listening = false; try { rec.stop(); } catch { /* 既に止まっている */ } setState('停止中', 'wait'); $('toggle').textContent = '待機を始める'; }
 
+// よくある操作は、ボタンで、そのまま送る（実行モード）
+const QUICK = [
+  ['今日の状況', '今日の状況を教えて'],
+  ['未投稿の動画', '未投稿の動画を、チャンネル別に教えて'],
+  ['エラーの原因と対処', '24時間のエラーの原因と、直す手順を教えて'],
+  ['承認待ちの内容', '承認待ちの内容を、題名とリスクつきで教えて'],
+  ['失敗した台本を直す', '失敗した台本のうち、時事性のない神社・江戸・宇宙・妖怪・戦国のものを、画像を解決し直して、検査が通ったら再投入して'],
+];
+for (const [label, text] of QUICK) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+  b.onclick = () => { send(text); };
+  $('quick').appendChild(b);
+}
+
 $('toggle').onclick = () => (listening ? stop() : start());
 $('text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { const t = e.target.value.trim(); e.target.value = ''; if (t) handle(`ジャービス ${t}`); } });
 $('save').onclick = () => { store.set('repo', $('repo').value.trim()); store.set('token', $('token').value.trim()); $('token').value = ''; log('設定を保存しました。'); };

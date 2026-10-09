@@ -60,13 +60,15 @@
   .small { padding:3px 10px; font-size:12px; } .none { color:var(--dim); }
   .reqtext { white-space:pre-wrap; border-left:2px solid var(--cyan); padding:4px 10px; margin:0; overflow-wrap:anywhere; }
   .reqtext:empty { display:none; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.quick button { padding: 4px 10px; font-size: 12px; }
 </style>
 </head>
 <body>
 <main>
   <div class="head"><h1>J.A.R.V.I.S. 司令室</h1><div class="stamp">最終更新 <b id="asof">受信待ち</b> <button id="refresh" type="button" class="small">更新</button></div></div>
   <div class="panel row"><span id="state" class="wait">停止中</span><button id="toggle" type="button">待機を始める</button></div>
-  <div class="panel"><div class="dim">「ジャービス、○○」と話すか、下の欄に入力して Enter。</div><input id="text" type="text" placeholder="例: 今日の状況は？" autocomplete="off"></div>
+  <div class="panel"><div class="dim">「ジャービス、○○」と話すか、下の欄に入力して Enter。</div><input id="text" type="text" placeholder="例: 今日の状況は？" autocomplete="off"><div id="quick" class="quick"></div></div>
 
   <div class="banner" id="stale" role="status"></div>
   <div class="banner" id="hudmsg" role="status"></div>
