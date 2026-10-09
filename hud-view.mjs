@@ -26,6 +26,11 @@ export function detailItems(status, key) {
     return list(d.tasks).map((x) => item(s(x.title), `担当 ${s(x.owner)} / リスク ${s(x.risk)}`,
       '次の巡回で担当部署が進めます。急ぐときは依頼してください。', [copy('進める依頼文をコピー', `「${s(x.title)}」を進めて`)]));
   }
+  if (key === 'unposted') {
+    return list(d.unposted).map((x) => item(s(x.title), `${s(x.channel)} / 予定 ${s(x.post_at)}`,
+      '成果物のフォルダ（youtube-未投稿）から、題名・説明つきでアップロード',
+      [copy('アップロードの手順を聞く', `「${s(x.title)}」の上げ方を教えて`)]));
+  }
   if (key === 'videos') {
     return list(d.video_failures).map((x) => item(s(x.title), `${s(x.channel)} / ${x.error || 'エラー内容なし'}`,
       '台本の画像・音声を確認。原因調査を依頼できます。',
@@ -47,7 +52,10 @@ export function tileModels(status) {
     { key: 'needs', cls: (a.needs_action || 0) > 0 ? 'warn' : 'ok', label: '要対応', n: a.needs_action || 0, unit: '件', d: 'タップで詳細' },
     { key: 'tasks', cls: 'info', label: 'タスク（todo）', n: st.tasks?.todo || 0, unit: '件', d: 'タップで詳細' },
     { key: 'x', cls: 'ok', label: 'X 投稿（累計）', n: st.x?.posted || 0, unit: '件', d: '本番の投稿' },
-    { key: 'videos', cls: (v.failed || 0) > 0 ? 'warn' : 'info', label: '動画 合成済み', n: v.rendered || 0, unit: '本', d: `失敗 ${v.failed || 0}（タップで詳細）` },
+    v.unposted == null
+      ? { key: 'unposted', cls: 'ok', label: '未投稿の動画', n: '—', unit: '', d: '取得待ち（次の更新で判定）' }
+      : { key: 'unposted', cls: v.unposted > 0 ? 'warn' : 'ok', label: '未投稿の動画', n: v.unposted, unit: '本', d: '上げるべき残り' },
+    { key: 'videos', cls: (v.failed || 0) > 0 ? 'warn' : 'ok', label: '動画の失敗', n: v.failed || 0, unit: '本', d: 'タップで詳細' },
     { key: 'errors', cls: (st.errors_24h || 0) >= 5 ? 'bad' : 'ok', label: 'エラー（24時間）', n: st.errors_24h || 0, unit: '件', d: 'タップで詳細' },
   ];
 }

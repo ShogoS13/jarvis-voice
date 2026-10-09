@@ -103,7 +103,7 @@ function renderTiles() {
     t.appendChild(b);
   }
 }
-const DETAIL_TITLES = { approvals: '承認待ち', needs: '要対応', tasks: 'タスク（todo）', videos: '動画の失敗', errors: 'エラー（24時間）', x: 'X 投稿' };
+const DETAIL_TITLES = { approvals: '承認待ち', needs: '要対応', tasks: 'タスク（todo）', videos: '動画の失敗', unposted: '未投稿の動画', errors: 'エラー（24時間）', x: 'X 投稿' };
 function renderDetail() {
   const p = $('detail-panel'), ul = $('detail'); ul.textContent = ''; $('reqtext').textContent = '';
   if (!hudCurrent || !hudStatus) { p.hidden = true; return; }
