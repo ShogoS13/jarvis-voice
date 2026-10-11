@@ -7,6 +7,8 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* 保存できなくても動く */ } },
 };
 let rec = null, listening = false, awaitingUntil = 0, sending = false;
+const chat = []; // 直前のやり取り（記憶の代わりに、毎回渡す）
+const chatText = () => chat.slice(-8).map((m) => `${m.role === 'me' ? 'オーナー' : 'ジャービス'}: ${m.text.slice(0, 500)}`).join('\n').slice(-2300);
 
 function log(text, cls = '') { const li = document.createElement('li'); li.className = cls; li.textContent = text; $('log').prepend(li); }
 function setState(text, cls) { const s = $('state'); s.textContent = text; s.className = cls; }
@@ -29,7 +31,9 @@ async function sendInner(text) {
   if (!token) { log('GitHub のトークンが未設定です。設定欄に入力して保存してください。', 'bad'); return; }
   const mode = 'action', id = newId(); // 読み取り専用では修復ができないため、常に実行モードで送る
   log(`あなた: ${text}（${mode === 'action' ? '実行' : '確認'}）`, 'me');
-  const r = await api(`/repos/${repo}/actions/workflows/jarvis.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { id, text, mode } }) });
+  const sentHistory = chatText();
+  chat.push({ role: 'me', text });
+  const r = await api(`/repos/${repo}/actions/workflows/jarvis.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { id, text, mode, history: sentHistory, deep: $('deep') && $('deep').checked ? 'true' : 'false' } }) });
   if (!r.ok) { log(`送信に失敗しました（HTTP ${r.status}）。${r.status === 401 || r.status === 403 ? 'トークンの権限や期限を確認してください。' : r.status === 404 ? 'リポジトリ名かワークフローを確認してください。' : ''}`, 'bad'); return; }
   setState('実行中…', 'wait');
   const end = Date.now() + 150e3;
@@ -38,7 +42,7 @@ async function sendInner(text) {
     const a = await api(`/repos/${repo}/contents/answers/${id}.json?ref=jarvis-answers`, { headers: { Accept: 'application/vnd.github.raw+json' } });
     if (a.ok) {
       const j = JSON.parse(await a.text());
-      log(`ジャービス: ${j.text}`, j.ok ? '' : 'bad'); setState(listening ? '待機中（「ジャービス」と呼んでください）' : '停止中', listening ? 'on' : 'wait'); refreshHud(); return;
+      chat.push({ role: 'jarvis', text: j.text }); log(`ジャービス: ${j.text}`, j.ok ? '' : 'bad'); setState(listening ? '待機中（「ジャービス」と呼んでください）' : '停止中', listening ? 'on' : 'wait'); refreshHud(); return;
     }
   }
   log('応答がありません。Actions の実行を確認してください。', 'bad'); setState(listening ? '待機中' : '停止中', listening ? 'on' : 'wait');
