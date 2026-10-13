@@ -62,48 +62,100 @@
   .reqtext:empty { display:none; }
 .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .quick button { padding: 4px 10px; font-size: 12px; }
+
+/* ---- 全画面の司令室（運用ログ | 数字 | 操作）---- */
+body { padding:10px; min-height:100vh; }
+main.hud { max-width:none; height:calc(100vh - 20px); height:calc(100dvh - 20px); grid-template-rows:auto auto auto minmax(0,1fr); gap:10px; }
+.top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+.cols { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); gap:10px; min-height:0; }
+.col { display:grid; gap:10px; align-content:start; min-height:0; overflow-y:auto; padding-right:2px; }
+.col > .panel { margin:0; }
+.ticker { position:relative; height:46vh; min-height:200px; overflow:hidden; border:1px solid var(--line); border-radius:3px; background:rgba(5,12,20,.5); }
+.ticker-list { list-style:none; margin:0; padding:8px 10px; display:grid; gap:6px; font:12px/1.5 ui-monospace, Consolas, monospace; }
+.ticker-list li { white-space:pre-wrap; overflow-wrap:anywhere; border-left:2px solid var(--line); padding-left:8px; }
+.ticker-list li.ok { color:var(--green); border-color:var(--green); } .ticker-list li.bad { color:var(--red); border-color:var(--red); }
+.ticker-list li.fix { color:var(--amber); border-color:var(--amber); } .ticker-list li.dim { color:var(--dim); }
+.ticker-list.scrolling { animation:tick var(--tick-dur, 40s) linear infinite; }
+.ticker:hover .ticker-list.scrolling { animation-play-state:paused; }
+@keyframes tick { to { transform:translateY(-50%); } }
+.bignums { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+.big .bignum { font-size:clamp(28px, 4.2vw, 56px); font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums; color:#ffd23f; text-shadow:0 0 18px rgba(255,210,63,.35); }
+.big.rev .bignum { color:var(--green); text-shadow:0 0 18px rgba(74,227,161,.3); }
+.big.warn .bignum { color:var(--amber); } .big small { color:var(--dim); font-size:12px; display:block; margin-top:4px; overflow-wrap:anywhere; }
+.rev-items { margin:6px 0 0; padding:0; list-style:none; font-size:12px; color:var(--dim); display:grid; gap:2px; }
+.rev-items li { display:flex; justify-content:space-between; gap:8px; } .rev-items b { color:var(--fg); font-weight:600; }
+.ring { display:grid; place-items:center; gap:4px; }
+.ring svg { width:100%; max-width:150px; height:auto; }
+.bars { display:flex; align-items:flex-end; gap:8px; height:120px; padding:6px 4px 0; }
+.bars .bar { flex:1; display:grid; grid-template-rows:1fr auto auto; gap:2px; height:100%; min-width:0; text-align:center; font-size:10px; color:var(--dim); }
+.bars .bar .fill { align-self:end; width:100%; background:var(--cyan); border-radius:2px 2px 0 0; min-height:0; }
+.bars .bar.bad .fill { background:var(--red); }
+.bars .bar .v { font-variant-numeric:tabular-nums; color:var(--fg); }
+.big svg .num { fill:var(--fg); font-weight:700; }
+.big.empty .bignum { color:var(--dim); text-shadow:none; font-size:clamp(20px, 2.6vw, 34px); font-weight:600; }
+[hidden] { display:none !important; }
+@media (max-width: 960px) {
+  main.hud { height:auto; }
+  .cols { grid-template-columns:minmax(0, 1fr); }
+  .col { overflow:visible; }
+  .ticker { height:260px; }
+}
+@media (prefers-reduced-motion: reduce) { .ticker-list.scrolling { animation:none; } .ticker { overflow-y:auto; } }
 </style>
 </head>
 <body>
-<main>
-  <div class="head"><h1>J.A.R.V.I.S. 司令室</h1><div class="stamp">最終更新 <b id="asof">受信待ち</b> <button id="refresh" type="button" class="small">更新</button></div></div>
-  <div class="panel row"><span id="state" class="wait">停止中</span><button id="toggle" type="button">待機を始める</button></div>
-  <div class="panel"><div class="dim">「ジャービス、○○」と話すか、下の欄に入力して Enter。</div><input id="text" type="text" placeholder="例: 今日の状況は？" autocomplete="off"><label class="dim"><input id="deep" type="checkbox" style="width:auto"> 詳しく調べる（高性能モデル・時間と利用枠を多めに使う）</label><div id="quick" class="quick"></div></div>
-
+<main class="hud">
+  <header class="top"><h1>J.A.R.V.I.S. 司令室</h1><div class="stamp">最終更新 <b id="asof">受信待ち</b> <button id="refresh" type="button" class="small">更新</button></div></header>
   <div class="banner" id="stale" role="status"></div>
   <div class="banner" id="hudmsg" role="status"></div>
-  <section class="core">
-    <div class="panel arc" aria-label="今月のAI運用費">
-      <div class="label">AI運用費（今月）</div>
-      <svg viewBox="0 0 220 220" role="img" aria-label="AI運用費の使用率">
-        <g class="ring-spin2"><circle cx="110" cy="110" r="102" fill="none" stroke="#12425e" stroke-width="1" stroke-dasharray="2 8"/></g>
-        <g class="ring-spin"><circle cx="110" cy="110" r="92" fill="none" stroke="#2fd8ff" stroke-opacity=".35" stroke-width="1" stroke-dasharray="30 14 4 14"/></g>
-        <circle cx="110" cy="110" r="74" fill="none" stroke="#12425e" stroke-width="10"/>
-        <circle id="gauge" cx="110" cy="110" r="74" fill="none" stroke="#2fd8ff" stroke-width="10" transform="rotate(-90 110 110)" stroke-dasharray="0 465"/>
-        <text x="110" y="112" text-anchor="middle" class="num" id="gauge-pct">—</text>
-        <text x="110" y="134" text-anchor="middle" class="sub">USED</text>
-      </svg>
-      <small id="spent">—</small>
-    </div>
-    <div class="tiles" id="tiles"><div class="waiting">データを受信しています…</div></div>
-  </section>
-  <section class="panel" id="detail-panel" hidden>
-    <h2 id="detail-title">詳細</h2>
-    <ul class="items" id="detail"></ul>
-    <p class="reqtext" id="reqtext"></p>
-  </section>
-  <section class="panel"><h2>注意の信号</h2><ul class="list" id="alerts"><li><span class="pill p-info">待機</span><span>最初のデータを待っています。</span></li></ul></section>
-  <section class="panel"><h2>チャンネル</h2><div class="scroll"><table class="channels">
-    <thead><tr><th>チャンネル</th><th class="num-r">登録者</th><th class="num-r">動画</th></tr></thead>
-    <tbody id="channels"><tr><td colspan="3" class="waiting">受信待ち</td></tr></tbody></table></div></section>
+  <div class="cols">
+    <section class="col" id="col-log" aria-label="運用ログ">
+      <div><h2>運用ログ</h2><div class="ticker" id="ticker"><ul class="ticker-list" id="ticker-list"><li class="dim">受信待ち</li></ul></div></div>
+      <section class="panel"><h2>注意の信号</h2><ul class="list" id="alerts"><li><span class="pill p-info">待機</span><span>最初のデータを待っています。</span></li></ul></section>
+    </section>
 
-  <ul id="log" class="panel"></ul>
-  <details class="panel"><summary>設定（このブラウザにだけ保存されます）</summary>
-    <p class="dim">GitHub のトークン（Actions: 書き込み、Contents: 読み取り、この保管庫だけ）。</p>
-    <label>リポジトリ <input id="repo" value="ShogoS13/ai-company-vault"></label>
-    <label>トークン <input id="token" type="password" autocomplete="off"></label>
-    <p><button id="save" type="button">保存</button></p>
-  </details>
+    <section class="col" id="col-numbers" aria-label="数字">
+      <div class="bignums">
+        <div class="panel big" id="cost-panel"><div class="label">AI運用費（今月）</div><div class="bignum" id="cost-value">—</div><small id="cost-sub"></small>
+          <svg viewBox="0 0 220 220" role="img" aria-label="AI運用費の使用率" style="max-width:110px;margin-top:6px">
+            <circle cx="110" cy="110" r="74" fill="none" stroke="#12425e" stroke-width="12"/>
+            <circle id="gauge" cx="110" cy="110" r="74" fill="none" stroke="#2fd8ff" stroke-width="12" transform="rotate(-90 110 110)" stroke-dasharray="0 465"/>
+            <text x="110" y="122" text-anchor="middle" class="num" id="gauge-pct" style="font-size:44px">—</text>
+          </svg><small id="spent" hidden></small></div>
+        <div class="panel big rev" id="revenue-panel"><div class="label">売上（今月）</div><div class="bignum" id="revenue-value">—</div><small id="revenue-sub"></small><ul class="rev-items" id="revenue-items"></ul></div>
+        <div class="panel big"><div class="label">自分で直した件数（7日）</div><div class="bignum" id="repair-value">0</div><small id="repair-sub"></small></div>
+        <div class="panel big ring"><div class="label">成功率（7日）</div>
+          <svg viewBox="0 0 220 220" role="img" aria-label="ルーチンの成功率">
+            <circle cx="110" cy="110" r="74" fill="none" stroke="#12425e" stroke-width="12"/>
+            <circle id="success-ring" cx="110" cy="110" r="74" fill="none" stroke="#4ae3a1" stroke-width="12" transform="rotate(-90 110 110)" stroke-dasharray="0 465"/>
+            <text x="110" y="124" text-anchor="middle" class="num" id="success-pct" style="font-size:46px">—</text>
+          </svg><small id="success-sub"></small></div>
+      </div>
+      <section class="panel"><h2>実行回数（直近7日）</h2><div class="bars" id="bars"><div class="waiting">受信待ち</div></div></section>
+      <section class="panel"><h2>チャンネル</h2><div class="scroll"><table class="channels">
+        <thead><tr><th>チャンネル</th><th class="num-r">登録者</th><th class="num-r">動画</th></tr></thead>
+        <tbody id="channels"><tr><td colspan="3" class="waiting">受信待ち</td></tr></tbody></table></div></section>
+    </section>
+
+    <section class="col" id="col-ops" aria-label="操作">
+      <div class="panel row"><span id="state" class="wait">停止中</span><button id="toggle" type="button">待機を始める</button></div>
+      <div class="panel"><div class="dim">「ジャービス、○○」と話すか、下の欄に入力して Enter。</div><input id="text" type="text" placeholder="例: 今日の状況は？" autocomplete="off"><div id="quick" class="quick"></div>
+        <details><summary>詳しい設定</summary><label class="dim"><input id="deep" type="checkbox" style="width:auto"> 詳しく調べる（高性能モデル・時間と利用枠を多めに使う）</label></details></div>
+      <ul id="log" class="panel"></ul>
+      <div class="tiles" id="tiles"><div class="waiting">データを受信しています…</div></div>
+      <section class="panel" id="detail-panel" hidden>
+        <h2 id="detail-title">詳細</h2>
+        <ul class="items" id="detail"></ul>
+        <p class="reqtext" id="reqtext"></p>
+      </section>
+      <details class="panel"><summary>設定（このブラウザにだけ保存されます）</summary>
+        <p class="dim">GitHub のトークン（Actions: 書き込み、Contents: 読み取り、この保管庫だけ）。</p>
+        <label>リポジトリ <input id="repo" value="ShogoS13/ai-company-vault"></label>
+        <label>トークン <input id="token" type="password" autocomplete="off"></label>
+        <p><button id="save" type="button">保存</button></p>
+      </details>
+    </section>
+  </div>
 </main>
 <script type="module" src="./app.js"></script>
 </body>

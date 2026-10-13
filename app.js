@@ -1,5 +1,5 @@
 import { findWake } from './parse.mjs';
-import { staleness, detailItems, tileModels, gaugeModel } from './hud-view.mjs';
+import { staleness, detailItems, tileModels, gaugeModel, costModel, revenueModel, successModel, barModels, logModels, repairModel } from './hud-view.mjs';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -141,7 +141,7 @@ function renderHud(d) {
   const gg = $('gauge'); gg.setAttribute('stroke-dasharray', g.dash); gg.setAttribute('stroke', g.color);
   $('gauge-pct').textContent = `${g.pct}%`;
   $('spent').textContent = `${yen(b.spent_jpy || 0)} / 上限 ${yen(b.limit_jpy || 0)}`;
-  renderTiles(); renderDetail();
+  renderTiles(); renderDetail(); renderMetrics(d.metrics);
   const ul = $('alerts'); ul.textContent = '';
   for (const x of d.alerts || []) {
     const li = el('li'), lv = x.level === 'bad' ? ['p-bad', '警告'] : x.level === 'warn' ? ['p-warn', '注意'] : ['p-info', '情報'];
@@ -155,6 +155,35 @@ function renderHud(d) {
   if (!tb.children.length) { const tr = el('tr'), td = el('td', 'waiting', 'チャンネルのデータなし'); td.colSpan = 3; tr.appendChild(td); tb.appendChild(tr); }
   updateStale();
 }
+// ---- 全画面の司令室: 数字・ゲージ・棒グラフ・流れる運用ログ ----
+function renderMetrics(m) {
+  const mm = m || {};
+  const c = costModel(mm.cost);
+  $('cost-value').textContent = c.value; $('cost-sub').textContent = c.sub; $('cost-panel').classList.toggle('warn', c.warn);
+  const r = revenueModel(mm.revenue);
+  $('revenue-value').textContent = r.value; $('revenue-sub').textContent = r.sub; $('revenue-panel').classList.toggle('empty', !r.has);
+  const ri = $('revenue-items'); ri.textContent = '';
+  for (const i of r.items) { const li = el('li'); li.append(el('span', null, i.name), el('b', null, i.value)); ri.appendChild(li); }
+  const rp = repairModel(mm.repairs); $('repair-value').textContent = rp.value; $('repair-sub').textContent = rp.sub;
+  const sc = successModel(mm.success), ring = $('success-ring');
+  ring.setAttribute('stroke-dasharray', sc.dash); ring.setAttribute('stroke', sc.color); $('success-pct').textContent = sc.label; $('success-sub').textContent = sc.sub;
+  const bars = $('bars'); bars.textContent = '';
+  const bm = barModels(mm.daily);
+  for (const b of bm) { const d = el('div', `bar ${b.cls}`), f = el('div', 'fill'); f.style.height = `${b.h}%`; d.append(f, el('div', 'v', String(b.runs)), el('div', null, b.label)); bars.appendChild(d); }
+  if (!bm.length) bars.appendChild(el('div', 'waiting', 'データなし'));
+  renderTicker(logModels(mm.log));
+}
+function renderTicker(items) {
+  const ul = $('ticker-list'); ul.textContent = ''; ul.classList.remove('scrolling');
+  if (!items.length) { ul.appendChild(el('li', 'dim', '実行記録がまだありません')); return; }
+  for (const it of items) ul.appendChild(el('li', it.cls, it.text));
+  if (ul.scrollHeight > $('ticker').clientHeight && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for (const it of items) ul.appendChild(el('li', it.cls, it.text)); // 切れ目なく流すため、同じものをもう一度並べる
+    ul.style.setProperty('--tick-dur', `${Math.max(20, items.length * 4)}s`);
+    ul.classList.add('scrolling');
+  }
+}
+
 function updateStale() {
   const s = $('stale');
   if (!hudStatus) { s.classList.remove('on'); return; }

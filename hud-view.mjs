@@ -64,3 +64,53 @@ export function gaugeModel(budget) {
   const pct = Math.max(0, Math.min(100, Number(budget?.pct) || 0));
   return { pct, dash: `${(pct / 100 * CIRC).toFixed(1)} ${CIRC}`, color: pct >= 80 ? AMBER : CYAN };
 }
+
+// ---- 全画面の司令室（3列型）用: 数字・ゲージ・棒グラフ・運用ログの表示モデル ----
+const GREEN = '#4ae3a1', RED = '#ff5a5f';
+const group = (n) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+export const yen = (n) => `${group(n)}円`;
+
+export function costModel(cost) {
+  if (!cost) return { value: '—', sub: '', pct: 0, warn: false };
+  const pct = Math.max(0, Math.min(100, Number(cost.pct) || 0));
+  return { value: yen(cost.spent_jpy), sub: `上限 ${yen(cost.limit_jpy)} の ${pct}%`, pct, warn: pct >= 80 };
+}
+
+export function revenueModel(revenue) {
+  if (!revenue) return { has: false, value: '未入力', sub: '40_Outputs/経理監査/売上.md に書くと表示されます', items: [] };
+  return {
+    has: true, value: yen(revenue.month_jpy), sub: `累計 ${yen(revenue.total_jpy)}${revenue.updated ? `（${revenue.updated} 時点）` : ''}`,
+    items: (revenue.items ?? []).map((i) => ({ name: i.name, value: yen(i.jpy) })),
+  };
+}
+
+export function successModel(success) {
+  if (!success) return { pct: null, label: '—', dash: `0 ${CIRC}`, color: '#6f93a8', sub: '実行記録がまだありません' };
+  const pct = Math.max(0, Math.min(100, Number(success.pct) || 0));
+  return {
+    pct, label: `${pct}%`, dash: `${(pct / 100 * CIRC).toFixed(1)} ${CIRC}`,
+    color: pct >= 95 ? GREEN : pct >= 80 ? AMBER : RED, sub: `成功 ${success.ok} / 失敗 ${success.error}（直近7日）`,
+  };
+}
+
+export function barModels(daily) {
+  const rows = Array.isArray(daily) ? daily : [];
+  const max = Math.max(1, ...rows.map((d) => Number(d.runs) || 0));
+  return rows.map((d) => {
+    const runs = Number(d.runs) || 0;
+    const h = runs === 0 ? 0 : Math.max(4, Math.round((runs / max) * 100));
+    return { label: String(d.date).slice(5).replace('-', '/'), runs, errors: Number(d.errors) || 0, h, cls: runs > 0 && (Number(d.errors) || 0) / runs >= 0.2 ? 'bad' : 'ok' }; // 失敗が少しある日は赤にしない（割合が 2 割以上の日だけ）
+  });
+}
+
+export function logModels(log) {
+  return (Array.isArray(log) ? log : []).map((l) => ({
+    cls: String(l.routine).startsWith('jarvis-repair') ? 'fix' : l.status === 'error' ? 'bad' : l.status === 'skipped' ? 'dim' : 'ok',
+    text: `${l.time}  ${l.routine}  ${l.note ?? ''}`.trimEnd(),
+  }));
+}
+
+export function repairModel(repairs) {
+  return { value: String(repairs?.merged_7d ?? 0), unit: '件', sub: '直近7日に、自分で直して反映した件数' };
+}
