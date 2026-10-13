@@ -1,4 +1,6 @@
 import { findWake } from './parse.mjs';
+import { startOrb, orbMood } from './orb.mjs';
+import { moodLabel, kvModels, blipStyles } from './stage.mjs';
 import { staleness, detailItems, tileModels, gaugeModel, costModel, revenueModel, successModel, barModels, logModels, repairModel } from './hud-view.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -10,8 +12,11 @@ let rec = null, listening = false, awaitingUntil = 0, sending = false;
 const chat = []; // 直前のやり取り（記憶の代わりに、毎回渡す）
 const chatText = () => chat.slice(-8).map((m) => `${m.role === 'me' ? 'オーナー' : 'ジャービス'}: ${m.text.slice(0, 500)}`).join('\n').slice(-2300);
 
-function log(text, cls = '') { const li = document.createElement('li'); li.className = cls; li.textContent = text; $('log').prepend(li); }
-function setState(text, cls) { const s = $('state'); s.textContent = text; s.className = cls; }
+function caption(text, bad) { const c = $('caption'); c.textContent = text; c.classList.toggle('bad', !!bad); }
+function log(text, cls = '') { const li = document.createElement('li'); li.className = cls; li.textContent = text; $('log').prepend(li); if (text.startsWith('ジャービス: ')) caption(text.slice(7), cls === 'bad'); }
+const mood = () => orbMood(hudStatus, { listening, busy: sending });
+function refreshOrbLabel() { $('orb-label').textContent = moodLabel(mood().name); $('kv-voice').textContent = listening ? '待機中' : '停止中'; }
+function setState(text, cls) { const s = $('state'); s.textContent = text; s.className = cls; refreshOrbLabel(); }
 const gh = () => ({ repo: store.get('repo', 'ShogoS13/ai-company-vault'), token: store.get('token') });
 const newId = () => `${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -136,12 +141,8 @@ function renderDetail() {
 }
 function renderHud(d) {
   hudStatus = d;
-  const g = gaugeModel(d.budget), b = d.budget || {};
   $('asof').textContent = d.asof ? `${String(d.asof).replace('T', ' ').slice(0, 16)} JST` : '—';
-  const gg = $('gauge'); gg.setAttribute('stroke-dasharray', g.dash); gg.setAttribute('stroke', g.color);
-  $('gauge-pct').textContent = `${g.pct}%`;
-  $('spent').textContent = `${yen(b.spent_jpy || 0)} / 上限 ${yen(b.limit_jpy || 0)}`;
-  renderTiles(); renderDetail(); renderMetrics(d.metrics);
+  renderTiles(); renderDetail(); renderMetrics(d.metrics); renderStage(d);
   const ul = $('alerts'); ul.textContent = '';
   for (const x of d.alerts || []) {
     const li = el('li'), lv = x.level === 'bad' ? ['p-bad', '警告'] : x.level === 'warn' ? ['p-warn', '注意'] : ['p-info', '情報'];
@@ -184,6 +185,14 @@ function renderTicker(items) {
   }
 }
 
+// ---- 舞台: 左のパネルの数字・レーダーの点・球の状態の表示 ----
+function renderStage(d) {
+  const k = kvModels(d);
+  for (const [id, m] of [['kv-appr', k.appr], ['kv-err', k.err], ['kv-unposted', k.unposted]]) { const e = $(id); e.textContent = m.text; e.className = m.cls; }
+  const radar = $('radar'); radar.textContent = '';
+  for (const p of blipStyles(((d.approvals || {}).pending || 0) + ((d.approvals || {}).needs_action || 0))) { const b = el('div', 'blip'); b.style.left = p.left; b.style.top = p.top; radar.appendChild(b); }
+  refreshOrbLabel();
+}
 function updateStale() {
   const s = $('stale');
   if (!hudStatus) { s.classList.remove('on'); return; }
@@ -223,3 +232,12 @@ $('refresh').onclick = requestHudUpdate;
 setInterval(() => { if (!document.hidden) { refreshHud(); updateStale(); } }, 60e3);
 window.addEventListener('focus', refreshHud);
 refreshHud();
+
+// ---- 舞台: 球・時計・操作の引き出し ----
+startOrb($('orb'), mood, { reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
+const tickClock = () => { $('clock').textContent = new Date().toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour12: false }); };
+tickClock(); setInterval(tickClock, 1000);
+function setDrawer(open) { document.body.classList.toggle('drawer-open', open); $('drawer').setAttribute('aria-hidden', String(!open)); $('open-drawer').setAttribute('aria-expanded', String(open)); }
+$('open-drawer').onclick = () => setDrawer(true); $('close-drawer').onclick = () => setDrawer(false); $('scrim').onclick = () => setDrawer(false);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDrawer(false); });
+refreshOrbLabel();
