@@ -34,8 +34,9 @@ async function send(text) {
 async function sendInner(text) {
   const { repo, token } = gh();
   if (!token) { log('GitHub のトークンが未設定です。設定欄に入力して保存してください。', 'bad'); return; }
-  const mode = 'action', id = newId(); // 読み取り専用では修復ができないため、常に実行モードで送る
-  log(`あなた: ${text}（${mode === 'action' ? '実行' : '確認'}）`, 'me');
+  const repair = !!($('repair') && $('repair').checked);
+  const mode = repair ? 'repair' : 'action', id = newId(); // 読み取り専用では修復ができないため、常に実行モード以上で送る
+  log(`あなた: ${text}（${mode === 'repair' ? '修復' : mode === 'action' ? '実行' : '確認'}）`, 'me');
   const sentHistory = chatText();
   chat.push({ role: 'me', text });
   const r = await api(`/repos/${repo}/actions/workflows/jarvis.yml/dispatches`, { method: 'POST', body: JSON.stringify({ ref: 'main', inputs: { id, text, mode, history: sentHistory, deep: $('deep') && $('deep').checked ? 'true' : 'false' } }) });
