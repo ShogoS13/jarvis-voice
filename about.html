@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shorts-uploader について</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f7f8fa; --ink: #1c2330; --dim: #5a6679; --line: #d9dee7; --card: #ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0e1218; --ink: #e8edf5; --dim: #9aa6b8; --line: #2a3342; --card: #151b24; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.8 system-ui, 'Hiragino Sans', 'Yu Gothic', 'Noto Sans JP', sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 36px 0 8px; }
+  p, li { color: var(--ink); }
+  .lead { color: var(--dim); }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 20px; }
+  a { color: inherit; }
+  footer { margin-top: 40px; color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>shorts-uploader について</h1>
+  <p class="lead">個人が自分のYouTubeチャンネルを運営するための、非公開の自動化ツールです。</p>
+
+  <h2>このツールは何をするか</h2>
+  <div class="box">
+    <ul>
+      <li>運営者本人が作った短い動画（ショート動画）を、運営者本人のYouTubeチャンネルに、予約公開としてアップロードします（YouTube Data API の動画アップロードを使います）。</li>
+      <li>運営者本人のチャンネルの、動画の一覧と、視聴回数などの統計を読み取り、次に作る動画の参考にします。</li>
+      <li>運営者本人が管理する6つのチャンネルだけが対象です。他人のチャンネルや、他人の動画には、アクセスしません。</li>
+    </ul>
+  </div>
+
+  <h2>公開範囲</h2>
+  <p>このツールは、一般には公開していません。運営者本人だけが、自分のパソコンと自動実行の環境で使います。ほかの利用者のアカウントでログインしたり、ほかの利用者のデータを集めたりしません。</p>
+
+  <h2>データの扱い</h2>
+  <p>くわしくは、<a href="privacy.html">プライバシーポリシー</a>をご覧ください。</p>
+
+  <h2>連絡先</h2>
+  <p>このページについてのお問い合わせは、このページを公開しているGitHubのリポジトリ（ShogoS13/jarvis-voice）の Issues からお願いします。</p>
+
+  <footer>YouTube は Google LLC の商標です。このツールは、YouTube API サービスの利用規約に従って使っています。</footer>
+</main>
+</body>
+</html>
