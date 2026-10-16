@@ -242,3 +242,6 @@ function setDrawer(open) { document.body.classList.toggle('drawer-open', open); 
 $('open-drawer').onclick = () => setDrawer(true); $('close-drawer').onclick = () => setDrawer(false); $('scrim').onclick = () => setDrawer(false);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setDrawer(false); });
 refreshOrbLabel();
+
+// ?auto=1 で開いたとき（PC の起動時に自動で開く設定）は、開いたと同時に待機を始める。マイクが未許可のときは、ボタンを押すまで待つ
+if (new URLSearchParams(location.search).get('auto') === '1') { try { start(); } catch { /* 開始できなくても、ボタンで始められる */ } }
